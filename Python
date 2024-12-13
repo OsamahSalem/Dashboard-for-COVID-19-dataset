@@ -1,0 +1,75 @@
+import dash
+from dash import dcc, html, Input, Output
+import pandas as pd
+import plotly.express as px
+
+# Initialize the app
+app = dash.Dash(__name__)
+app.title = "COVID-19 Data Dashboard"
+
+# Load and preprocess the data
+file_path1 = 'country_wise_latest.csv'
+data1 = pd.read_csv(file_path1)
+columns_to_drop = ['New cases', 'New deaths', 'New recovered']
+data1 = data1.drop(columns=columns_to_drop, errors='ignore')
+sorted_data = data1.sort_values(by='Confirmed', ascending=False)
+top_5_all_columns = sorted_data.head(5)
+bottom_5_all_columns = sorted_data.tail(5)
+
+# Add a 'Category' column to distinguish between Top 5 and Bottom 5
+top_5_all_columns['Category'] = 'Top 5'
+bottom_5_all_columns['Category'] = 'Bottom 5'
+
+# Concatenate the dataframes with the new 'Category' column
+top_bottom_data = pd.concat([top_5_all_columns, bottom_5_all_columns])
+
+region_summary1 = data1.groupby("WHO Region")[["Deaths / 100 Cases", "Recovered / 100 Cases", "Deaths / 100 Recovered"]].mean()
+region_summary2 = data1.groupby("WHO Region")[["Confirmed", "Deaths", "Recovered", "Active"]].sum()
+
+file_path2 = 'covid_19_clean_complete.csv'
+data2 = pd.read_csv(file_path2)
+region_summary3 = data2.groupby("WHO Region")[["Confirmed", "Deaths", "Recovered", "Active"]].sum()
+
+file_path3 = 'day_wise.csv'
+data3 = pd.read_csv(file_path3)
+data3['Date'] = pd.to_datetime(data3['Date'])
+filtered_data = data3[data3['Date'] >= '2020-05-13']
+columns_to_calculate = ['Confirmed', 'Deaths', 'Recovered', 'Active',
+                        'New cases', 'New deaths', 'New recovered']
+mean_values = filtered_data[columns_to_calculate].mean()
+
+# Layout
+app.layout = html.Div([
+    html.H1("COVID-19 Data Dashboard", style={'textAlign': 'center'}),
+
+    # Top 5 and Bottom 5 Countries
+    html.H2("Top 5 and Bottom 5 Countries by Confirmed Cases"),
+    dcc.Graph(
+        id='top-bottom-bar',
+        figure=px.bar(
+            top_bottom_data,
+            x='Country/Region', y='Confirmed', color='Category', barmode='group',
+            title="Top 5 and Bottom 5 Countries by Confirmed Cases"
+        )
+    ),
+
+    # WHO Region Summaries
+    html.H2("WHO Region Summaries"),
+    dcc.Graph(
+        id='region-summary',
+        figure=px.bar(
+            region_summary2.reset_index(), x='WHO Region', y=['Confirmed', 'Deaths', 'Recovered', 'Active'],
+            title="WHO Region Summaries for Key Metrics"
+        )
+    ),
+
+    # Mean Values for Day-wise Data
+    html.H2("Mean Values for Key Metrics Since May 13, 2020"),
+    html.Div([
+        html.Ul([html.Li(f"{col}: {value:.2f}") for col, value in mean_values.items()])
+    ])
+])
+
+# Run the app
+if __name__ == "__main__":
+    app.run_server(debug=True)
