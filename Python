@@ -2,10 +2,11 @@ import dash
 from dash import dcc, html, Input, Output
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 
 # Initialize app
 app = dash.Dash(__name__)
-app.title = "COVID-19 Data Dashboard"
+app.title = "Enhanced COVID-19 Data Dashboard"
 
 # Load and preprocess data
 file_path1 = 'country_wise_latest.csv'
@@ -38,9 +39,16 @@ columns_to_calculate = ['Confirmed', 'Deaths', 'Recovered', 'Active',
                         'New cases', 'New deaths', 'New recovered']
 mean_values = filtered_data[columns_to_calculate].mean()
 
+# Case Fatality and Recovery Rates
+data1['Case Fatality Rate (%)'] = (data1['Deaths'] / data1['Confirmed']) * 100
+filtered_data['Recovery Rate (%)'] = (filtered_data['Recovered'] / filtered_data['Confirmed']) * 100
+
+# Time Series Visualization
+filtered_time_series = filtered_data[['Date', 'Confirmed', 'Deaths', 'Recovered']].groupby('Date').sum().reset_index()
+
 # Layout
 app.layout = html.Div([
-    html.H1("COVID-19 Data Dashboard", style={'textAlign': 'center'}),
+    html.H1("Enhanced COVID-19 Data Dashboard", style={'textAlign': 'center'}),
 
     # Top 5 and Bottom 5 Countries
     html.H2("Top 5 and Bottom 5 Countries by Confirmed Cases"),
@@ -63,13 +71,32 @@ app.layout = html.Div([
         )
     ),
 
+    # Case Fatality Rate by WHO Region
+    html.H2("Case Fatality Rate by WHO Region"),
+    dcc.Graph(
+        id='fatality-rate',
+        figure=px.bar(
+            data1.groupby("WHO Region")[["Case Fatality Rate (%)"]].mean().reset_index(),
+            x='WHO Region', y='Case Fatality Rate (%)',
+            title="Average Case Fatality Rate by WHO Region"
+        )
+    ),
+
+    # Time Series Visualization
+    html.H2("Global Time Series for Confirmed, Deaths, and Recovered"),
+    dcc.Graph(
+        id='time-series',
+        figure=px.line(
+            filtered_time_series, x='Date', y=['Confirmed', 'Deaths', 'Recovered'],
+            title="Global Time Series for Confirmed, Deaths, and Recovered"
+        )
+    ),
+
     # Mean Values for Day-wise Data
     html.H2("Mean Values for Key Metrics Since May 13, 2020"),
     html.Div([
         html.Ul([html.Li(f"{col}: {value:.2f}") for col, value in mean_values.items()])
     ])
 ])
-
-# Run the app
 if __name__ == "__main__":
     app.run_server(debug=True)
